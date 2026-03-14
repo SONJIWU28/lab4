@@ -1,18 +1,66 @@
 services:
+  postgres:
+    image: postgres:15
+    container_name: phone_db
+    restart: always
+    environment:
+      POSTGRES_DB: phone_directory
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - phone_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   app:
     build: ./app
     container_name: phone_app
     restart: always
-    network_mode: host
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/phone_directory
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/phone_directory
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - phone_network
+    ports:
+      - "5000:5000"  # меняем на 5000, как в app.py
 
   nginx:
     image: nginx:alpine
     container_name: phone_nginx
     restart: always
-    network_mode: host
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
     depends_on:
       - app
+    networks:
+      - phone_network
+    ports:
+      - "80:80"
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: phone_pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    networks:
+      - phone_network
+    depends_on:
+      - postgres
+
+networks:
+  phone_network:
+    driver: bridge
+
+volumes:
+  postgres_data:

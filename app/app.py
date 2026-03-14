@@ -1,5 +1,6 @@
 import os
 import psycopg2
+import re
 from psycopg2.extras import RealDictCursor
 from flask import Flask, request, redirect, url_for, render_template_string
 
@@ -35,6 +36,21 @@ def init_db():
     cur.close()
     conn.close()
 
+def validate_full_name(name):
+    words = name.strip().split()
+    if len(words) != 3:
+        return False, "ФИО должно состоять из 3 слов (фамилия, имя, отчество)"
+    for word in words:
+        if not re.match(r'^[А-Яа-яA-Za-z-]+$', word):
+            return False, f"Слово '{word}' содержит недопустимые символы. Разрешены только буквы и дефис"
+    return True, "OK"
+
+
+def validate_phone(phone):
+    pattern = r'^\+\d-\d{3}-\d{3}-\d{2}-\d{2}$'
+    if not re.match(pattern, phone):
+        return False, "Телефон должен быть в формате +7-900-111-22-33"
+    return True, "OK"
 
 TEMPLATE = '''
 <!DOCTYPE html>
@@ -388,12 +404,21 @@ def add():
     name = request.form['full_name'].strip()
     phone = request.form['phone'].strip()
     note = request.form.get('note', '').strip()
-    if name and phone:
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute("INSERT INTO contacts (full_name, phone, note) VALUES (%s, %s, %s)", (name, phone, note))
-        cur.close()
-        conn.close()
+
+    is_valid_name, name_error = validate_full_name(name)
+    if not is_valid_name:
+        return f'''<script>alert("Ошибка: {name_error}"); window.location.href = "/";</script>'''
+
+    is_valid_phone, phone_error = validate_phone(phone)
+    if not is_valid_phone:
+        return f'''<script>alert("Ошибка: {phone_error}"); window.location.href = "/";</script>'''
+
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("INSERT INTO contacts (full_name, phone, note) VALUES (%s, %s, %s)", (name, phone, note))
+    cur.close()
+    conn.close()
+
     return redirect(url_for('index'))
 
 
@@ -402,12 +427,21 @@ def edit(contact_id):
     name = request.form['full_name'].strip()
     phone = request.form['phone'].strip()
     note = request.form.get('note', '').strip()
-    if name and phone:
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute("UPDATE contacts SET full_name=%s, phone=%s, note=%s WHERE id=%s", (name, phone, note, contact_id))
-        cur.close()
-        conn.close()
+
+    is_valid_name, name_error = validate_full_name(name)
+    if not is_valid_name:
+        return f'''<script>alert("Ошибка: {name_error}"); window.location.href = "/";</script>'''
+
+    is_valid_phone, phone_error = validate_phone(phone)
+    if not is_valid_phone:
+        return f'''<script>alert("Ошибка: {phone_error}"); window.location.href = "/";</script>'''
+
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("UPDATE contacts SET full_name=%s, phone=%s, note=%s WHERE id=%s", (name, phone, note, contact_id))
+    cur.close()
+    conn.close()
+
     return redirect(url_for('index'))
 
 

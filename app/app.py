@@ -25,6 +25,27 @@ def init_db():
             note TEXT DEFAULT ''
         )
     """)
+
+    cur.execute("""
+        ALTER TABLE contacts DROP CONSTRAINT IF EXISTS chk_full_name_format;
+        ALTER TABLE contacts DROP CONSTRAINT IF EXISTS chk_phone_format;
+    """)
+
+    cur.execute("""
+        -- Сначала удаляем некорректные данные
+        DELETE FROM contacts 
+        WHERE full_name !~ '^[А-Яа-яA-Za-z-]+[[:space:]]+[А-Яа-яA-Za-z-]+[[:space:]]+[А-Яа-яA-Za-z-]+$'
+           OR phone !~ '^\+[0-9]-[0-9]{3}-[0-9]{3}-[0-9]{2}-[0-9]{2}$';
+
+        -- Добавляем CHECK constraints
+        ALTER TABLE contacts
+        ADD CONSTRAINT chk_full_name_format
+        CHECK (full_name ~ '^[А-Яа-яA-Za-z-]+[[:space:]]+[А-Яа-яA-Za-z-]+[[:space:]]+[А-Яа-яA-Za-z-]+$');
+
+        ALTER TABLE contacts
+        ADD CONSTRAINT chk_phone_format
+        CHECK (phone ~ '^\+[0-9]-[0-9]{3}-[0-9]{3}-[0-9]{2}-[0-9]{2}$');
+    """)
     cur.execute("SELECT COUNT(*) FROM contacts")
     if cur.fetchone()[0] == 0:
         cur.execute("""
@@ -33,6 +54,7 @@ def init_db():
                 ('Петрова Мария Сергеевна', '+7-900-444-55-66', 'Соседка'),
                 ('Сидоров Алексей Петрович', '+7-900-777-88-99', 'Друг из университета')
         """)
+
     cur.close()
     conn.close()
 

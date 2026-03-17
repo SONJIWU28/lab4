@@ -32,12 +32,10 @@ def init_db():
     """)
 
     cur.execute("""
-        -- Сначала удаляем некорректные данные
         DELETE FROM contacts 
         WHERE full_name !~ '^[А-Яа-яA-Za-z-]+[[:space:]]+[А-Яа-яA-Za-z-]+[[:space:]]+[А-Яа-яA-Za-z-]+$'
            OR phone !~ '^\+[0-9]-[0-9]{3}-[0-9]{3}-[0-9]{2}-[0-9]{2}$';
 
-        -- Добавляем CHECK constraints
         ALTER TABLE contacts
         ADD CONSTRAINT chk_full_name_format
         CHECK (full_name ~ '^[А-Яа-яA-Za-z-]+[[:space:]]+[А-Яа-яA-Za-z-]+[[:space:]]+[А-Яа-яA-Za-z-]+$');
@@ -60,18 +58,31 @@ def init_db():
 
 def validate_full_name(name):
     words = name.strip().split()
+    if len(name) > 100:
+        return False, "ФИО не должно превышать 100 символов"
+    
     if len(words) != 3:
         return False, "ФИО должно состоять из 3 слов (фамилия, имя, отчество)"
+    
     for word in words:
+        if len(word) < 2:
+            return False, f"Слово '{word}' слишком короткое"
+        if len(word) > 30:
+            return False, f"Слово '{word}' слишком длинное"
         if not re.match(r'^[А-Яа-яA-Za-z-]+$', word):
-            return False, f"Слово '{word}' содержит недопустимые символы. Разрешены только буквы и дефис"
+            return False, f"Слово '{word}' содержит недопустимые символы"
+    
     return True, "OK"
 
 
 def validate_phone(phone):
+    if len(phone) > 20:
+        return False, "Номер телефона слишком длинный (максимум 20 символов)"
+    
     pattern = r'^\+\d-\d{3}-\d{3}-\d{2}-\d{2}$'
     if not re.match(pattern, phone):
         return False, "Телефон должен быть в формате +7-900-111-22-33"
+    
     return True, "OK"
 
 TEMPLATE = '''
